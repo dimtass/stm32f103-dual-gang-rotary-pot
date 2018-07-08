@@ -1,0 +1,58 @@
+cmake_minimum_required(VERSION 2.8)
+
+project(dual-pot-rotary)
+
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm-none-eabi")
+
+
+    # force stm builds to debug.  This is a hack as when release is set, it automatically 
+    # sets the invalid -O3 flag on the assembler.
+    set(CMAKE_BUILD_TYPE Debug)
+
+    # shared libraries
+    add_subdirectory(CMSIS)
+    add_subdirectory(StdPeriph_Driver)
+    add_subdirectory(startup)
+
+	# Resolve the issue with Eclipse's indexer and C/C++ mixed source files
+	include(../cmake/language_provider.cmake)
+	remove_from_SYSTEM_MACROS(CXX "__cplusplus;.*;")
+	create_language_provider("${CMAKE_BINARY_DIR}/.settings" "${GCC_PREFIX}-" "${CXX_STANDARD_FLAG}")
+    
+    # enable asm for stm startup.s file
+    enable_language(ASM)
+
+    # override toolchain flags
+    set(COMPILER_OPTIONS "-mthumb -mcpu=cortex-m3 -mlittle-endian -mthumb-interwork -mfloat-abi=soft ")
+    # -fno-builtin -fno-strict-aliasing -std=c99
+    #SET(CMAKE_C_FLAGS "${COMPILER_OPTIONS} -Wall -Werror -lm -lc --specs=nano.specs -fmessage-length=0 -ffunction-sections -std=c11" CACHE INTERNAL "c compiler flags")
+    #SET(CMAKE_CXX_FLAGS "${COMPILER_OPTIONS} -Wall -Werror -lm -lc --specs=nano.specs -fmessage-length=0 -ffunction-sections -std=c++11" CACHE INTERNAL "cxx compiler flags")
+    SET(CMAKE_C_FLAGS "${COMPILER_OPTIONS} -Wall -Werror -lm -lc -fmessage-length=0 -ffunction-sections -std=c11" CACHE INTERNAL "c compiler flags")
+    SET(CMAKE_CXX_FLAGS "${COMPILER_OPTIONS} -Wall -Werror -lm -lc -fmessage-length=0 -ffunction-sections -std=c++11" CACHE INTERNAL "cxx compiler flags")
+    SET(CMAKE_ASM_FLAGS "${COMPILER_OPTIONS}" CACHE INTERNAL "asm compiler flags")
+    # -mthumb -mcpu=cortex-m3 -mfix-cortex-m3-ldrd   -Wl,-Map=linker.map -Wl,-cref  -Wl,--gc-sections
+    SET(CMAKE_EXE_LINKER_FLAGS "${COMPILER_OPTIONS} -Wl,-Map=linker.map -Wl,-cref -Wl,--gc-sections" CACHE INTERNAL "exe link flags")
+    
+    # set compiler optimisations
+    set(COMPILER_OPTIMISATION "-g -O3")
+    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${COMPILER_OPTIMISATION}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMPILER_OPTIMISATION}")
+
+    # add startup and linker file
+    set(STARTUP_ASM_FILE "${startup_stm32_SOURCE_DIR}/startup_stm32f10x_md.s")
+    set_property(SOURCE ${STARTUP_ASM_FILE} PROPERTY LANGUAGE ASM)
+    set(LINKER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/LinkerScript.ld")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${COMPILER_OPTIONS} -T${LINKER_FILE}")
+
+    # add the source code directory
+    add_subdirectory(src)
+endif()
+
+message(STATUS "System Processor      : ${CMAKE_SYSTEM_PROCESSOR}")
+message(STATUS 
+    "BUILD FLAGS:\n"
+    "   c flags     = ${CMAKE_C_FLAGS}\n"
+    "   c++ flags   = ${CMAKE_CXX_FLAGS}\n"
+    "   asm flags   = ${CMAKE_ASM_FLAGS}\n"
+    "   ld flags    = ${CMAKE_EXE_LINKER_FLAGS}\n"
+)
